@@ -1,28 +1,35 @@
 # 工作区协作规则
 
-本文件适用于 `/Users/dongzhiming/Documents/Codes/learn_agent` 及其下所有子项目。
+## 项目目标
+
+本项目的目标是**完全复现 langchain-ai/open_deep_research**，一个基于 LangGraph 的自动化深度研究 Agent。
+
+复现分 4 个阶段，每阶段独立可测试：
+1. Phase 1: 基础设施（state/config/prompts/utils）
+2. Phase 2: Researcher 子图（ReAct 循环 + 压缩）
+3. Phase 3: Supervisor 子图 + 报告生成
+4. Phase 4: 完整主图 + 端到端验证
+
+## 开始工作前必读
+
+1. **进度追踪**: `docs/PROGRESS.md` — 查看当前阶段和待办项
+2. **复现指南**: `docs/REPRODUCTION_GUIDE.md` — 每个阶段的详细规格和陷阱
+3. **原版参考**: `reference/` 目录 — 原版 5 个核心源文件，用于 diff 对比
 
 ## 环境管理
 
-- 默认使用 Conda 管理 Python 环境。
-- 默认使用 `base` 环境，除非用户明确要求为某个项目单独创建环境。
-- 非经用户要求，不要创建 `.venv`、`venv` 或其他新的虚拟环境。
-- 安装本地开发依赖时，默认安装到当前激活的 Conda `base` 环境中。
+- 使用 Conda 管理 Python 环境，默认使用 `base` 环境。
+- 不要创建 `.venv`、`venv` 或其他新的虚拟环境。
+- 安装依赖到当前激活的 Conda `base` 环境中。
 
 ## 密钥与配置
 
-- 优先使用工作区根目录下的 `.env`：`/Users/dongzhiming/Documents/Codes/learn_agent/.env`
-- 非经用户明确要求，不要为子项目额外创建项目级 `.env`。
-- 如果工作区级 `.env` 与项目级 `.env` 同时存在，默认优先复用工作区级共享配置；只有在项目明确需要隔离配置时，才使用项目级 `.env`。
-
-## 运行与安装约定
-
-- 在提供运行步骤时，默认假设用户会先执行 `conda activate base`。
-- 在提供 Python 依赖安装命令时，优先给出适用于当前 Conda 工作流的命令。
-- 不要主动切换到 `uv`、`.venv` 或其他环境管理方式，除非用户明确提出。
+- 优先使用工作区根目录下的 `.env`
+- 非经用户明确要求，不要额外创建项目级 `.env`。
 
 ## 协作方式
 
-- 进入新项目时，默认先遵循本文件中的环境和配置约定。
-- 如果需要调整环境管理方式、依赖安装位置或密钥加载方式，应先与用户确认。
-- 当项目代码本身已经支持从工作区根目录读取共享 `.env` 时，优先沿用该机制，不额外改造。
+- 每完成一个子任务，更新 `docs/PROGRESS.md` 中对应的 checkbox。
+- 写代码时，始终对照 `reference/` 目录中的原版文件，确保关键逻辑一致。
+- Prompt 必须原文复制，不做任何修改。
+- Configuration 默认值必须与原版一致。

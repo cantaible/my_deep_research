@@ -10,3 +10,15 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Local RAG migration artifacts
+rag/backups/
+rag/local_mariadb/
+rag/migration_logs/
+rag/vectordb/
+
+# 原版参考源码
+reference/
+
+# 运行日志
+logs/
