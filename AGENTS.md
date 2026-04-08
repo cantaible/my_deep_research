@@ -2,19 +2,13 @@
 
 ## 项目目标
 
-本项目的目标是**完全复现 langchain-ai/open_deep_research**，一个基于 LangGraph 的自动化深度研究 Agent。
-
-复现分 4 个阶段，每阶段独立可测试：
-1. Phase 1: 基础设施（state/config/prompts/utils）
-2. Phase 2: Researcher 子图（ReAct 循环 + 压缩）
-3. Phase 3: Supervisor 子图 + 报告生成
-4. Phase 4: 完整主图 + 端到端验证
+基于 LangGraph 的自动化深度研究 Agent。已完成 open_deep_research 的完整复现，当前阶段为**优化研究质量**。
 
 ## 开始工作前必读
 
 1. **进度追踪**: `docs/PROGRESS.md` — 查看当前阶段和待办项
-2. **复现指南**: `docs/REPRODUCTION_GUIDE.md` — 每个阶段的详细规格和陷阱
-3. **原版参考**: `reference/` 目录 — 原版 5 个核心源文件，用于 diff 对比
+2. **架构参考**: `reference/` 目录 — 原版源文件，供架构参考（不再要求严格一致）
+3. **TUI 入口**: `python src/tui.py "研究主题"` — 运行研究并实时查看过程
 
 ## 环境管理
 
@@ -30,10 +24,9 @@
 ## 语言规范
 
 - 除非用户特别指定，所有自然语言内容（Prompt、注释、日志输出等）**默认使用中文**。
-- Prompt 使用中文翻译，但必须与原版英文在语义、结构和指令逻辑上保持严格一致。对照 `reference/` 中的英文原文逐段核对，不得遗漏或改变指令含义。
 
 ## 协作方式
 
 - 每完成一个子任务，更新 `docs/PROGRESS.md` 中对应的 checkbox。
-- 写代码时，始终对照 `reference/` 目录中的原版文件，确保关键逻辑一致。
-- Configuration 默认值必须与原版一致。
+- Prompt、Configuration、图拓扑均可根据优化需要自由修改。
+- 每次优化后通过 TUI 实际运行验证效果（`logs/` 目录保存完整运行记录）。

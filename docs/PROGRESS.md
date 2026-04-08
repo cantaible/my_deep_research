@@ -1,8 +1,8 @@
 # 复现进度
 
 ## 当前状态
-- **阶段**: Phase 3（已完成）
-- **下一步**: 暂不开始 Phase 4，等待进一步指令
+- **阶段**: 复现已完成，进入优化阶段
+- **下一步**: 优化研究质量（搜索覆盖度、报告完整性）
 
 ## Phase 1: 基础设施 ✅
 - [x] pyproject.toml 补充依赖
@@ -24,11 +24,13 @@
 - [x] graph.py (supervisor + write_research_brief + final_report_generation)
 - [x] test_phase3.py
 - [x] 验证通过
-- 说明：当前 Phase 3 验证以控制流、状态流转和本地复盘日志为主
-- 说明：`test_phase3.py` 中对 `researcher_subgraph` 和报告模型使用了 dummy/stub
 
-## Phase 4: 完整主图（代码完成，测试待运行）
+## Phase 4: 完整主图 + TUI ✅
 - [x] graph.py — clarify_with_user 节点 + 主图组装 (deep_researcher)
 - [x] langgraph.json 更新指向 deep_researcher
-- [x] test_phase4.py 编写（端到端真实调用）
-- [ ] 端到端验证通过
+- [x] src/runner.py — 核心运行器（事件采集 + 持久化）
+- [x] src/tui.py — Terminal UI（Rich 渲染 + 交互式澄清）
+- [x] 端到端验证通过
+
+## 优化阶段
+- [ ] 待定（根据用户需求逐步推进）
