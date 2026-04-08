@@ -16,10 +16,12 @@ from langgraph.types import Command
 
 from configuration import Configuration, PROJECT_ROOT
 from prompts import (
+    clarify_with_user_instructions,
     research_system_prompt, lead_researcher_prompt,
     transform_messages_into_research_topic_prompt, final_report_generation_prompt,
 )
 from state import (
+    AgentInputState, ClarifyWithUser,
     ConductResearch, ResearchComplete, ResearchQuestion,
     ResearcherOutputState, ResearcherState, SupervisorState, AgentState,
 )
@@ -366,6 +368,58 @@ supervisor_subgraph = supervisor_builder.compile()
 
 
 ##########################
+# 主图节点：用户澄清
+##########################
+
+async def clarify_with_user(state: AgentState, config: RunnableConfig) -> Command[Literal["write_research_brief", "__end__"]]:
+    """分析用户消息，判断研究范围是否清晰，必要时提出澄清问题。
+
+    如果配置中禁用了澄清（allow_clarification=False），直接跳到研究简报生成。
+    否则使用 ClarifyWithUser schema 做结构化分析，决定是追问还是继续。
+    """
+    # Step 1: 检查是否启用了澄清功能
+    configurable = Configuration.from_runnable_config(config)
+    if not configurable.allow_clarification:
+        return Command(goto="write_research_brief")
+
+    # Step 2: 配置模型，使用 ClarifyWithUser 结构化输出
+    messages = state["messages"]
+    model_config = {
+        "model": configurable.research_model,
+        "max_tokens": configurable.research_model_max_tokens,
+        "api_key": get_api_key_for_model(configurable.research_model, config),
+        "tags": ["langsmith:nostream"],
+    }
+    clarification_model = (
+        configurable_model
+        .with_structured_output(ClarifyWithUser)
+        .with_retry(stop_after_attempt=configurable.max_structured_output_retries)
+        .with_config(model_config)
+    )
+
+    # Step 3: 调用模型分析是否需要澄清
+    prompt_content = clarify_with_user_instructions.format(
+        messages=get_buffer_string(messages),
+        date=get_today_str()
+    )
+    response = await clarification_model.ainvoke([HumanMessage(content=prompt_content)])
+
+    # Step 4: 根据分析结果路由
+    if response.need_clarification:
+        # 需要澄清 → 结束对话，向用户追问
+        return Command(
+            goto=END,
+            update={"messages": [AIMessage(content=response.question)]}
+        )
+    else:
+        # 不需要澄清 → 带确认消息进入研究简报生成
+        return Command(
+            goto="write_research_brief",
+            update={"messages": [AIMessage(content=response.verification)]}
+        )
+
+
+##########################
 # 主图节点：研究简报生成
 ##########################
 
@@ -491,3 +545,30 @@ async def final_report_generation(state: AgentState, config: RunnableConfig):
         "messages": [AIMessage(content="报告生成超过最大重试次数")],
         **cleared_state
     }
+
+
+##########################
+# 完整主图组装
+##########################
+
+# 创建主图：用户输入 → 澄清 → 研究简报 → Supervisor 研究 → 最终报告
+deep_researcher_builder = StateGraph(
+    AgentState,
+    input=AgentInputState,
+    config_schema=Configuration
+)
+
+# 添加 4 个节点
+deep_researcher_builder.add_node("clarify_with_user", clarify_with_user)
+deep_researcher_builder.add_node("write_research_brief", write_research_brief)
+deep_researcher_builder.add_node("research_supervisor", supervisor_subgraph)
+deep_researcher_builder.add_node("final_report_generation", final_report_generation)
+
+# 定义边
+# 注意：clarify_with_user → write_research_brief 没有 edge，靠 Command 路由
+deep_researcher_builder.add_edge(START, "clarify_with_user")
+deep_researcher_builder.add_edge("research_supervisor", "final_report_generation")
+deep_researcher_builder.add_edge("final_report_generation", END)
+
+# 编译完整主图
+deep_researcher = deep_researcher_builder.compile()

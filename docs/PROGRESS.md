@@ -27,7 +27,8 @@
 - 说明：当前 Phase 3 验证以控制流、状态流转和本地复盘日志为主
 - 说明：`test_phase3.py` 中对 `researcher_subgraph` 和报告模型使用了 dummy/stub
 
-## Phase 4: 完整主图
-- [ ] graph.py (主图)
-- [ ] test_phase4.py
+## Phase 4: 完整主图（代码完成，测试待运行）
+- [x] graph.py — clarify_with_user 节点 + 主图组装 (deep_researcher)
+- [x] langgraph.json 更新指向 deep_researcher
+- [x] test_phase4.py 编写（端到端真实调用）
 - [ ] 端到端验证通过
