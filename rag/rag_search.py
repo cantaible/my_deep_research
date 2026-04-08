@@ -84,16 +84,41 @@ def _collect_candidates(vec_results: dict, bm25_hits: list[dict]) -> list[dict]:
 
 
 @tool
-def rag_search(query: str, days: int = 30, category: str = "", top_k: int = 10) -> str:
-    """搜索本地新闻数据库，先做混合召回，再用本地 reranker 统一重排。"""
+def rag_search(query: str, days: int = 0, category: str = "",
+               top_k: int = 10, start_date: str = "", end_date: str = "") -> str:
+    """搜索本地新闻数据库，先做混合召回，再用本地 reranker 统一重排。
+
+    Args:
+        query: 搜索关键词
+        days: 搜索最近 N 天（向后兼容，优先使用 start_date/end_date）
+        category: 分类筛选（AI / GAMES / ""）
+        top_k: 最多返回条数
+        start_date: 起始日期 YYYY-MM-DD（含）
+        end_date: 结束日期 YYYY-MM-DD（含）
+    """
+    from datetime import datetime
+
     if top_k <= 0:
         top_k = DEFAULT_MAX_RESULTS
 
     where_clauses = []
-    threshold = None
-    if days > 0:
-        threshold = int(time.time() - days * 24 * 3600)
-        where_clauses.append({"published_ts": {"$gte": threshold}})
+    ts_gte = None
+    ts_lte = None
+
+    # 优先使用精确日期范围
+    if start_date:
+        ts_gte = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
+        where_clauses.append({"published_ts": {"$gte": ts_gte}})
+    if end_date:
+        # end_date 当天的 23:59:59
+        ts_lte = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp()) + 86399
+        where_clauses.append({"published_ts": {"$lte": ts_lte}})
+
+    # 向后兼容：如果没指定日期但指定了 days
+    if not start_date and not end_date and days > 0:
+        ts_gte = int(time.time() - days * 24 * 3600)
+        where_clauses.append({"published_ts": {"$gte": ts_gte}})
+
     if category:
         where_clauses.append({"category": {"$eq": category}})
 
@@ -114,7 +139,8 @@ def rag_search(query: str, days: int = 30, category: str = "", top_k: int = 10) 
         query,
         top_k=candidate_k,
         category=category,
-        published_ts_gte=threshold,
+        published_ts_gte=ts_gte,
+        published_ts_lte=ts_lte,
     )
 
     candidates = _collect_candidates(vec, bm25)

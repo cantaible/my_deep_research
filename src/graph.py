@@ -22,9 +22,10 @@ from prompts import (
 )
 from state import (
     AgentInputState, ClarifyWithUser,
-    ConductResearch, ResearchComplete, ResearchQuestion,
+    ConductResearch, ConductRAGResearch, ResearchComplete, ResearchQuestion,
     ResearcherOutputState, ResearcherState, SupervisorState, AgentState,
 )
+from rag_subgraph import rag_researcher_builder
 from utils import (
     get_all_tools, get_api_key_for_model, get_model_token_limit,
     get_today_str, is_token_limit_exceeded, think_tool,
@@ -224,7 +225,7 @@ async def supervisor(state: SupervisorState, config: RunnableConfig):
     #   ConductResearch — 委派研究任务给子 Researcher
     #   ResearchComplete — 表示研究已完成
     #   think_tool      — 策略反思
-    lead_researcher_tools = [ConductResearch, ResearchComplete, think_tool]
+    lead_researcher_tools = [ConductResearch, ConductRAGResearch, ResearchComplete, think_tool]
     research_model = (
         configurable_model
         .bind_tools(lead_researcher_tools)
@@ -342,6 +343,7 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                 update_payload["raw_notes"] = [raw_notes_concat]
 
         except Exception as e:
+
             # token 超限或其他异常，直接结束研究阶段
             if is_token_limit_exceeded(e, configurable.research_model) or True:
                 return Command(
@@ -351,6 +353,35 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                         "research_brief": state.get("research_brief", ""),
                     }
                 )
+
+    # 3) ConductRAGResearch：调用 RAG 子图搜索本地新闻库
+    rag_calls = [tc for tc in most_recent.tool_calls if tc["name"] == "ConductRAGResearch"]
+    if rag_calls:
+        try:
+            rag_subgraph = rag_researcher_builder.compile()
+            rag_tasks = [
+                rag_subgraph.ainvoke(
+                    {"research_topic": tc["args"]["research_topic"]}, config
+                )
+                for tc in rag_calls
+            ]
+            rag_results = await asyncio.gather(*rag_tasks)
+            for obs, tc in zip(rag_results, rag_calls):
+                all_tool_messages.append(ToolMessage(
+                    content=obs.get("compressed_research", "RAG 搜索无结果"),
+                    name=tc["name"],
+                    tool_call_id=tc["id"],
+                ))
+                rag_notes = obs.get("raw_notes", [])
+                if rag_notes:
+                    update_payload.setdefault("raw_notes", []).extend(rag_notes)
+        except Exception as e:
+            for tc in rag_calls:
+                all_tool_messages.append(ToolMessage(
+                    content=f"RAG 搜索失败: {e}",
+                    name=tc["name"],
+                    tool_call_id=tc["id"],
+                ))
 
     # 返回结果，继续 supervisor 循环
     update_payload["supervisor_messages"] = all_tool_messages

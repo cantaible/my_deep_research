@@ -1,7 +1,7 @@
 """图状态定义。"""
 
 import operator
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from langchain_core.messages import MessageLikeRepresentation
 from langgraph.graph import MessagesState
@@ -44,6 +44,31 @@ class ResearchQuestion(BaseModel):
         description="用于指导研究的研究问题。",
     )
 
+class ConductRAGResearch(BaseModel):
+    """委派本地新闻库研究任务。Supervisor 调用此工具搜索本地新闻数据库。"""
+    research_topic: str = Field(
+        description="要在本地新闻库中搜索的研究主题。",
+    )
+
+class RAGSubQuery(BaseModel):
+    """Plan 阶段产出的单个子查询。"""
+    query: str = Field(description="具体的搜索查询文本")
+    start_date: str = Field(
+        description="搜索时间范围的起始日期，格式 YYYY-MM-DD。例如 '2026-03-01'",
+    )
+    end_date: str = Field(
+        description="搜索时间范围的结束日期，格式 YYYY-MM-DD。例如 '2026-03-07'",
+    )
+    category: Literal["AI", "GAMES", ""] = Field(
+        default="AI",
+        description="新闻分类：'AI'=人工智能相关, 'GAMES'=游戏相关, ''=不限",
+    )
+
+class RAGQueryPlan(BaseModel):
+    """Plan 阶段的完整输出：将研究主题拆分为多个子查询。"""
+    sub_queries: list[RAGSubQuery] = Field(
+        description="拆分后的子查询列表，按时间窗口或子主题拆分以提高召回率",
+    )
 
 class AgentInputState(MessagesState):
     """图输入状态，只暴露 messages 给外部调用者。"""
@@ -151,3 +176,19 @@ class ResearcherOutputState(BaseModel):
     # 原始笔记，用于备份和调试
     raw_notes: Annotated[list[str], override_reducer] = []
 
+class RAGResearcherState(TypedDict):
+    """RAG 子图状态（Plan-and-Execute 模式）。
+
+    与 ResearcherState 不同：不用 ReAct 循环，而是先 plan 拆分查询，再并行 execute。
+    输出复用 ResearcherOutputState，确保 Supervisor 端代码零改动。
+    """
+    # 由 Supervisor 分配的研究主题
+    research_topic: str
+    # plan 节点产出的子查询列表
+    sub_queries: list[dict]
+    # execute 节点产出的每个子查询的原始结果
+    raw_results: Annotated[list[str], operator.add]
+    # compress 节点产出的压缩摘要
+    compressed_research: str
+    # 原始笔记
+    raw_notes: Annotated[list[str], override_reducer] = []

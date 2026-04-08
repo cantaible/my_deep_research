@@ -21,10 +21,14 @@ def _tokenize(text: str) -> list[str]:
     return analyze_text(text)
 
 
-def _matches_filters(metadata: dict, category: str, published_ts_gte: int | None) -> bool:
+def _matches_filters(metadata: dict, category: str,
+                     published_ts_gte: int | None, published_ts_lte: int | None = None) -> bool:
     if category and metadata.get("category") != category:
         return False
-    if published_ts_gte is not None and int(metadata.get("published_ts", 0)) < published_ts_gte:
+    ts = int(metadata.get("published_ts", 0))
+    if published_ts_gte is not None and ts < published_ts_gte:
+        return False
+    if published_ts_lte is not None and ts > published_ts_lte:
         return False
     return True
 
@@ -48,6 +52,7 @@ def bm25_search(
     top_k: int = 10,
     category: str = "",
     published_ts_gte: int | None = None,
+    published_ts_lte: int | None = None,
 ) -> list[dict]:
     """BM25 关键词检索，返回 [{id, score, metadata, doc}, ...]。"""
     if _bm25 is None:
@@ -66,6 +71,7 @@ def bm25_search(
             metadata,
             category=category,
             published_ts_gte=published_ts_gte,
+            published_ts_lte=published_ts_lte,
         ):
             continue
 
