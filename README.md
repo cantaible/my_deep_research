@@ -1,20 +1,22 @@
 ---
 
-<div align="center">
+<p align="center">
+  <img src="assets/logo.png" width="300" alt="AutoResearcher Logo">
+</p>
 
-<img src="assets/logo.png" width="300" alt="AutoResearcher Logo">
+<h3 align="center">AutoResearcher — 深度自动化网络调研流水线</h3>
+<p align="center"><b>一句话描述 → 一份媲美投行的深度研究报告</b></p>
 
-### AutoResearcher — 深度自动化网络调研流水线
-**一句话描述 → 一份媲美投行的深度研究报告**
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://langchain-ai.github.io/langgraph/"><img src="https://img.shields.io/badge/LangGraph-Multi--Agent-FF6F00?style=for-the-badge" alt="LangGraph"></a>
+  <a href="https://textual.textualize.io/"><img src="https://img.shields.io/badge/Textual-TUI-009688?style=for-the-badge&logo=python&logoColor=white" alt="Textual"></a>
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Multi--Agent-FF6F00?style=for-the-badge)](https://langchain-ai.github.io/langgraph/)
-[![Textual](https://img.shields.io/badge/Textual-TUI-009688?style=for-the-badge&logo=python&logoColor=white)](https://textual.textualize.io/)
-
-<br/>
-
-<img src="https://img.shields.io/badge/Status-Beta-yellow?style=flat-square" />
-<img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" />
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Beta-yellow?style=flat-square" alt="Status" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
+</p>
 
 ---
 
@@ -27,10 +29,8 @@
 
 | 课题 | 类型 | 核心模型 | 耗时 |
 |:----:|:----:|:-------:|:-------:|
-| 🏆 **[2025诺贝尔物理学奖实际应用前景](docs/examples/nobel_prize_2025.md)** | 科技前沿 | `gpt-4.1` | ~ 3.5 分钟 |
 | 🤖 **[2026年3月发布的大模型及跑分调研](docs/examples/llm_releases_2026_03.md)** | 行业动态 | `gpt-5.4` | ~ 20 分钟 |
-
-</div>
+| 🏆 **[2025诺贝尔物理学奖实际应用前景](docs/examples/nobel_prize_2025.md)** | 科技前沿 | `gpt-4.1` | ~ 3.5 分钟 |
 
 <br/>
 
@@ -149,17 +149,13 @@ pip install -e ".[dev]"
 在项目根目录创建一个 `.env` 文件。
 ```bash
 OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://openrouter.ai/api/v1  # 取决于你使用的代理服务 (如 OpenRouter)
 TAVILY_API_KEY=tvly-...
 ```
 
 ### 3. 一键开车 (TUI 体验)
 ```bash
-python src/tui_advanced.py "请调研诺贝尔物理学奖得主的具体实际应用前景"
-```
-
-或者，跑个完全免打扰的纯净后台批处理测试：
-```bash
-python scripts/batch_runner.py --config experiments/experiment_config.example.yaml
+python src/tui.py "请调研诺贝尔物理学奖得主的具体实际应用前景"
 ```
 
 ---
@@ -172,6 +168,7 @@ python scripts/batch_runner.py --config experiments/experiment_config.example.ya
 | 变量 | 说明 | 获取方式 |
 |------|------|---------|
 | `OPENAI_API_KEY` | 主要大语言模型调用鉴权 | [OpenAI](https://platform.openai.com/) |
+| `OPENAI_BASE_URL` | (可选) API 代理地址，针对第三方接入 (例如 OpenRouter) | [OpenRouter](https://openrouter.ai/) |
 | `TAVILY_API_KEY` | 负责核心网络抓取和事实追踪 | [Tavily](https://tavily.com/) |
 
 ### 大模型分级覆写 (可选，动态替换)
