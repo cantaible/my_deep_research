@@ -52,7 +52,8 @@ class ConductRAGResearch(BaseModel):
 
 class RAGSubQuery(BaseModel):
     """Plan 阶段产出的单个子查询。"""
-    query: str = Field(description="具体的搜索查询文本")
+    search_intent: str = Field(description="一句话说明这个子查询的搜索目的，想找什么信息")
+    query: str = Field(description="描述性自然语言搜索短句（中文为主，可混合英文术语）")
     start_date: str = Field(
         description="搜索时间范围的起始日期，格式 YYYY-MM-DD。例如 '2026-03-01'",
     )
@@ -68,6 +69,17 @@ class RAGQueryPlan(BaseModel):
     """Plan 阶段的完整输出：将研究主题拆分为多个子查询。"""
     sub_queries: list[RAGSubQuery] = Field(
         description="拆分后的子查询列表，按时间窗口或子主题拆分以提高召回率",
+    )
+
+class SearchEvaluation(BaseModel):
+    """LLM 对单次 RAG 搜索结果的结构化评估。"""
+    quality: Literal["good", "insufficient", "off_topic"] = Field(
+        description="结果质量：good=满足需求, insufficient=信息不足需补搜, off_topic=偏题需改写查询",
+    )
+    reason: str = Field(description="评估理由")
+    refined_query: Optional[str] = Field(
+        default=None,
+        description="修正后的查询（quality != good 时必填）",
     )
 
 
@@ -222,18 +234,30 @@ class ResearcherOutputState(BaseModel):
     raw_notes: Annotated[list[str], override_reducer] = []
 
 class RAGResearcherState(TypedDict):
-    """RAG 子图状态（Plan-and-Execute 模式）。
+    """RAG 子图状态（Plan → 并行 Execute → Compress）。
 
-    与 ResearcherState 不同：不用 ReAct 循环，而是先 plan 拆分查询，再并行 execute。
-    输出复用 ResearcherOutputState，确保 Supervisor 端代码零改动。
+    plan 节点拆分子查询后，通过 Send API 并行分发到 execute 节点。
+    execute 的结果通过 operator.add reducer 自动汇入 raw_results。
+    输出仍复用 ResearcherOutputState，确保 Supervisor 端代码零改动。
     """
     # 由 Supervisor 分配的研究主题
     research_topic: str
     # plan 节点产出的子查询列表
     sub_queries: list[dict]
-    # execute 节点产出的每个子查询的原始结果
+    # execute 节点汇入的原始结果
     raw_results: Annotated[list[str], operator.add]
     # compress 节点产出的压缩摘要
     compressed_research: str
-    # 原始笔记
-    raw_notes: Annotated[list[str], override_reducer] = []
+    # 原始笔记（与 ResearcherOutputState 的 reducer 一致）
+    raw_notes: Annotated[list[str], override_reducer]
+
+class RAGExecuteState(TypedDict):
+    """单个 RAG execute 节点的状态，由 Send 分发。"""
+    # 来自 plan 的单个子查询（dict 形式的 RAGSubQuery）
+    sub_query: dict
+    # 原始研究主题（评估时需要上下文）
+    research_topic: str
+    # execute 输出，通过 reducer 汇入 RAGResearcherState
+    raw_results: Annotated[list[str], operator.add]
+    raw_notes: Annotated[list[str], override_reducer]
+

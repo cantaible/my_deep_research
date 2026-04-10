@@ -1,5 +1,5 @@
 """本地 reranker：对候选文档做统一重排。"""
-from functools import lru_cache
+import os
 
 import torch
 from sentence_transformers import CrossEncoder
@@ -15,14 +15,24 @@ def get_reranker_device() -> str:
     return "cpu"
 
 
-@lru_cache(maxsize=1)
+_reranker = None
+_reranker_lock = __import__("threading").Lock()
+
+
 def get_reranker() -> CrossEncoder:
-    return CrossEncoder(
-        RERANKER_MODEL,
-        max_length=RERANKER_MAX_LENGTH,
-        device=get_reranker_device(),
-        local_files_only=True,
-    )
+    global _reranker
+    if _reranker is None:
+        with _reranker_lock:
+            if _reranker is None:
+                os.environ.setdefault("HF_HUB_OFFLINE", "1")
+                os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+                _reranker = CrossEncoder(
+                    RERANKER_MODEL,
+                    max_length=RERANKER_MAX_LENGTH,
+                    device=get_reranker_device(),
+                    local_files_only=True,
+                )
+    return _reranker
 
 
 def rerank_candidates(query: str, candidates: list[dict]) -> list[dict]:

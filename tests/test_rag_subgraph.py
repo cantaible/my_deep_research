@@ -17,17 +17,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rag"))
 
 async def test_rag_subgraph():
     """实际调用 RAG 子图，测试完整 Plan-Execute-Compress 流程。"""
-    from langchain_core.messages import AIMessage
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
     from rag_subgraph import rag_researcher_builder
+    from runner import append_event, normalize_event
 
-    topic = "2026年3月都有哪些基础大语言模型发布了"
+    # topic = "搜索本地新闻数据库，查找2026年3月1日至3月31日期间发布的大模型相关新闻、产品发布、榜单变化，重点覆盖基础大语言模型、图像生成模型、视频生成模型、Agent、代码生成模型，以及Lmarena leaderboard在2026年3月的相关报道或引用。优先提取发布日期、厂商、模型类别、功能亮点、技术规格和榜单排名信息。"
+    topic = "搜索本地新闻数据库，查找2026年3月1日至3月31日期间发布的大模型相关新闻，看看有哪些新的大模型发布了，尤其要关注头部厂商。"
 
     # 创建 run 目录（复用 runner 的命名逻辑）
     from runner import make_run_dir
     run_dir = make_run_dir(f"rag-test-{topic[:20]}")
     thread_id = run_dir.name
     db_path = str(run_dir / "checkpoints.db")
+    events_path = run_dir / "events.jsonl"
 
     print(f"📋 研究主题: {topic}")
     print(f"📁 Run 目录: {run_dir}")
@@ -38,12 +40,23 @@ async def test_rag_subgraph():
 
     async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
         subgraph = rag_researcher_builder.compile(checkpointer=checkpointer)
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 500,
+        }
 
-        result = await subgraph.ainvoke(
+        event_stream = subgraph.astream_events(
             {"research_topic": topic},
             config=config,
+            version="v2",
         )
+        async for raw in event_stream:
+            evt = normalize_event(raw)
+            if evt:
+                append_event(events_path, evt)
+
+        state = await subgraph.aget_state(config)
+        result = state.values
 
         # 打印结果
         compressed = result.get("compressed_research", "")

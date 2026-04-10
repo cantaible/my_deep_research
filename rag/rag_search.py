@@ -1,4 +1,5 @@
-"""RAG 混合检索工具：向量检索 + BM25 召回 + 本地 reranker 重排。"""
+"""RAG 混合检索工具：向量检索 + 词法召回 + 本地 reranker 重排。"""
+import os
 import sys
 import time
 from pathlib import Path
@@ -14,32 +15,48 @@ from config import (
     COLLECTION_NAME,
     DEFAULT_MAX_RESULTS,
     EMBEDDING_MODEL,
+    LEXICAL_BACKEND,
     RETRIEVAL_CANDIDATE_MULTIPLIER,
     VECTORDB_DIR,
 )
+from opensearch_search import OpenSearchUnavailableError, opensearch_search
 from reranker import rerank_candidates
 
 _collection = None
 _embedding_model = None
+_init_lock = __import__("threading").Lock()
+
+
+def _force_hf_offline() -> None:
+    """强制 Hugging Face 只使用本地缓存，避免运行时意外联网。"""
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
 
 def get_collection():
     global _collection
     if _collection is None:
-        client = chromadb.PersistentClient(path=str(VECTORDB_DIR))
-        _collection = client.get_collection(name=COLLECTION_NAME)
+        with _init_lock:
+            if _collection is None:
+                client = chromadb.PersistentClient(path=str(VECTORDB_DIR))
+                _collection = client.get_collection(name=COLLECTION_NAME)
     return _collection
 
 
 def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
-        # 查询只有单条，优先稳定性，统一在 CPU 上做 embedding。
-        _embedding_model = SentenceTransformer(
-            EMBEDDING_MODEL,
-            device="cpu",
-            local_files_only=True,
-        )
+        with _init_lock:
+            if _embedding_model is None:
+                # 查询只有单条，优先稳定性，统一在 CPU 上做 embedding。
+                _force_hf_offline()
+                _embedding_model = SentenceTransformer(
+                    EMBEDDING_MODEL,
+                    device="cpu",
+                    local_files_only=True,
+                    tokenizer_kwargs={"local_files_only": True},
+                    config_kwargs={"local_files_only": True},
+                )
     return _embedding_model
 
 
@@ -51,8 +68,8 @@ def embed_query(query: str) -> list[float]:
     return embedding.tolist()
 
 
-def _collect_candidates(vec_results: dict, bm25_hits: list[dict]) -> list[dict]:
-    """合并向量和 BM25 候选，并保留召回来源，供 reranker 统一重排。"""
+def _collect_candidates(vec_results: dict, lexical_hits: list[dict]) -> list[dict]:
+    """合并向量和词法候选，并保留召回来源，供 reranker 统一重排。"""
     merged_by_id: dict[str, dict] = {}
 
     for i in range(len(vec_results["ids"][0])):
@@ -64,23 +81,62 @@ def _collect_candidates(vec_results: dict, bm25_hits: list[dict]) -> list[dict]:
         }
         merged_by_id[item["id"]] = item
 
-    for hit in bm25_hits:
+    for hit in lexical_hits:
         existing = merged_by_id.get(hit["id"])
         if existing is None:
+            lexical_label = hit.get("backend", "BM25")
             merged_by_id[hit["id"]] = {
                 "id": hit["id"],
                 "doc": hit.get("doc", ""),
                 "metadata": hit["metadata"],
-                "sources": ["BM25"],
+                "sources": [lexical_label],
             }
             continue
 
-        if "BM25" not in existing["sources"]:
-            existing["sources"].append("BM25")
+        lexical_label = hit.get("backend", "BM25")
+        if lexical_label not in existing["sources"]:
+            existing["sources"].append(lexical_label)
         if not existing.get("doc") and hit.get("doc"):
             existing["doc"] = hit["doc"]
 
     return list(merged_by_id.values())
+
+
+def _lexical_search(
+    query: str,
+    top_k: int,
+    category: str,
+    published_ts_gte: int | None,
+    published_ts_lte: int | None,
+) -> list[dict]:
+    backend = LEXICAL_BACKEND
+    if backend == "bm25":
+        return bm25_search(
+            query,
+            top_k=top_k,
+            category=category,
+            published_ts_gte=published_ts_gte,
+            published_ts_lte=published_ts_lte,
+        )
+
+    try:
+        return opensearch_search(
+            query,
+            top_k=top_k,
+            category=category,
+            published_ts_gte=published_ts_gte,
+            published_ts_lte=published_ts_lte,
+        )
+    except OpenSearchUnavailableError:
+        if backend != "auto":
+            raise
+        return bm25_search(
+            query,
+            top_k=top_k,
+            category=category,
+            published_ts_gte=published_ts_gte,
+            published_ts_lte=published_ts_lte,
+        )
 
 
 @tool
@@ -135,7 +191,7 @@ def rag_search(query: str, days: int = 0, category: str = "",
         where=where,
         n_results=candidate_k,
     )
-    bm25 = bm25_search(
+    lexical_hits = _lexical_search(
         query,
         top_k=candidate_k,
         category=category,
@@ -143,7 +199,7 @@ def rag_search(query: str, days: int = 0, category: str = "",
         published_ts_lte=ts_lte,
     )
 
-    candidates = _collect_candidates(vec, bm25)
+    candidates = _collect_candidates(vec, lexical_hits)
     reranked = rerank_candidates(query, candidates)[:top_k]
     if not reranked:
         return f"查询 '{query}' 没有找到匹配的新闻。"

@@ -4,6 +4,7 @@ RAG 系统配置文件。
 集中管理所有配置项：数据库连接、向量存储路径、模型选择、检索参数。
 修改配置只需改这一个文件，其他模块通过 import config 引用。
 """
+import os
 from pathlib import Path
 
 # ============================================================
@@ -64,3 +65,21 @@ RETRIEVAL_CANDIDATE_MULTIPLIER = 4
 DEFAULT_TIME_RANGE_DAYS = 30
 # 返回结果中 raw_content 预览的最大字符数
 RAW_CONTENT_PREVIEW_LENGTH = 500
+
+# ============================================================
+# 词法检索后端配置
+# ============================================================
+# 可选值：
+# - opensearch: 强制使用 OpenSearch 作为词法检索后端
+# - auto: 优先 OpenSearch，不可用时回退到本地 BM25
+# - bm25: 仅使用本地 BM25（兼容旧实现）
+LEXICAL_BACKEND = os.getenv("LEXICAL_BACKEND", "opensearch").strip().lower()
+
+# ============================================================
+# OpenSearch 配置
+# ============================================================
+OPENSEARCH_URL = os.getenv("OPENSEARCH_URL", "http://127.0.0.1:9200").strip()
+OPENSEARCH_INDEX_NAME = os.getenv("OPENSEARCH_INDEX_NAME", "news_articles_v1").strip()
+OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME", "").strip()
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "").strip()
+OPENSEARCH_TIMEOUT = int(os.getenv("OPENSEARCH_TIMEOUT", "30"))

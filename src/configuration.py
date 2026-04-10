@@ -58,6 +58,8 @@ class Configuration(BaseModel):
     max_researcher_iterations: int = 6
     # 单个 Researcher 的最大工具调用次数（ReAct 循环上限）
     max_react_tool_calls: int = 10
+    # RAG execute 节点每个子查询的最大重试次数（0=不重试，只搜一次）
+    max_rag_retries: int = 2
 
     # ── 模型配置（三层分级） ──
     #

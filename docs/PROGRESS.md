@@ -49,3 +49,11 @@
 - [ ] dedup.py（ResearchFinding 抽取 + 精确去重）
 - [ ] 主图拓扑加入 deduplicate_findings 节点
 - [ ] 端到端验证通过
+
+### 辅助工具
+- [x] scripts/export_rag_run.py（导出单次运行的 RAG 查询与命中结果）
+- [x] scripts/export_researcher_run.py（导出单次运行的 researcher 子图轨迹）
+- [x] scripts/export_rag_subgraph_analysis.py（导出 RAG 子图 query/反馈/迭代详细报告）
+- [x] OpenSearch 词法检索后端（替换手写 BM25）
+- [x] docker-compose.opensearch.yml + build_opensearch_index.py
+- [x] docs/ANTIGRAVITY_PROXY_FIX.md（Clash Verge / Antigravity 代理稳定性排障记录）

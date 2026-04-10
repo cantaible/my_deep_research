@@ -16,6 +16,7 @@ dependencies = [
     "tavily-python>=0.5.0",
     "mcp>=1.9.4",
     "aiohttp",
+    "opensearch-py>=2.8.0",
 ]
 
 [project.scripts]
