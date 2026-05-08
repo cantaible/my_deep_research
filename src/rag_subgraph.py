@@ -87,8 +87,11 @@ def route_plan(state: RAGResearcherState) -> list[Send]:
     ]
 
 
-async def _run_single_rag_query(sub_query: dict) -> str:
-    """在线程池中执行单个 RAG 查询。"""
+async def _run_single_rag_query(sub_query: dict) -> str | dict:
+    """在线程池中执行单个 RAG 查询。
+
+    返回 str（默认）或 dict（当需要检索详情时）。
+    """
     from rag_search import rag_search
     result = await asyncio.to_thread(
         rag_search.invoke,
@@ -98,6 +101,7 @@ async def _run_single_rag_query(sub_query: dict) -> str:
             "end_date": sub_query.get("end_date", ""),
             "category": sub_query.get("category", ""),
             "top_k": 20,
+            "return_details": True,  # 启用检索详情记录
         },
     )
     return result
@@ -136,12 +140,23 @@ async def execute(state: RAGExecuteState, config) -> dict:
     evaluator = model.with_structured_output(SearchEvaluation)
 
     all_results = []
+    all_retrieval_details = []  # 收集所有轮次的检索详情
     current_query = sub_query["query"]
 
     for attempt in range(max_retries + 1):
         # 1. 执行搜索
         result = await _run_single_rag_query({**sub_query, "query": current_query})
-        all_results.append(f"[第{attempt+1}轮] 查询: {current_query}\n{result}")
+
+        # 处理返回结果（可能是 str 或 dict）
+        if isinstance(result, dict):
+            formatted_output = result["formatted_output"]
+            retrieval_details = result.get("retrieval_details")
+            if retrieval_details:
+                all_retrieval_details.append(retrieval_details)
+        else:
+            formatted_output = result
+
+        all_results.append(f"[第{attempt+1}轮] 查询: {current_query}\n{formatted_output}")
         print(f"  🔍 RAG execute [{attempt+1}/{max_retries+1}]: {current_query}")
 
         # 最后一轮不再评估
@@ -154,7 +169,7 @@ async def execute(state: RAGExecuteState, config) -> dict:
             HumanMessage(content=(
                 f"研究主题：{research_topic}\n"
                 f"子查询：{current_query}\n"
-                f"搜索结果：\n{result}"
+                f"搜索结果：\n{formatted_output}"
             )),
         ])
 
@@ -170,6 +185,7 @@ async def execute(state: RAGExecuteState, config) -> dict:
     return {
         "raw_results": [f"--- 查询: {sub_query['query']} ---\n{combined}"],
         "raw_notes": [f"[RAG] {sub_query['query']}"],
+        "retrieval_details": all_retrieval_details,  # 返回所有轮次的检索详情
     }
 
 

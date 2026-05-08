@@ -79,6 +79,7 @@ async def run_rag_subgraph(topic: str) -> tuple[Path, dict]:
         compressed = result.get("compressed_research", "")
         raw_notes = result.get("raw_notes", [])
         raw_results = result.get("raw_results", [])
+        retrieval_details = result.get("retrieval_details", [])  # 新增：获取检索详情
 
         with open(run_dir / "compressed.md", "w", encoding="utf-8") as f:
             f.write(compressed or "")
@@ -86,6 +87,10 @@ async def run_rag_subgraph(topic: str) -> tuple[Path, dict]:
             json.dump(raw_notes, f, ensure_ascii=False, indent=2)
         with open(run_dir / "raw_results.json", "w", encoding="utf-8") as f:
             json.dump(raw_results, f, ensure_ascii=False, indent=2)
+
+        # 新增：保存检索详情
+        with open(run_dir / "retrieval_details.json", "w", encoding="utf-8") as f:
+            json.dump(retrieval_details, f, ensure_ascii=False, indent=2)
 
         sub_queries = state.values.get("sub_queries", [])
         with open(run_dir / "sub_queries.json", "w", encoding="utf-8") as f:
@@ -101,6 +106,7 @@ async def run_rag_subgraph(topic: str) -> tuple[Path, dict]:
         "raw_notes_count": len(raw_notes),
         "raw_results_count": len(raw_results),
         "sub_query_count": len(sub_queries),
+        "retrieval_details_count": len(retrieval_details),  # 新增：记录检索详情数量
     }
     with open(run_dir / "run_meta.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)

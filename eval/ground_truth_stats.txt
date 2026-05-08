@@ -1,0 +1,44 @@
+Ground Truth 数据统计
+============================================================
+
+总文章数: 2262
+  有 canonical_name: 100 (4.4%)
+  无 canonical_name: 2162 (95.6%)
+
+Gold Evidence 提取:
+  来源: title_only
+  成功: 2262
+  失败: 0
+
+事件类型分布:
+  other                  799 (35.3%)
+  product_launch         532 (23.5%)
+  industry_news          521 (23.0%)
+  funding_business       310 (13.7%)
+  model_release          100 (4.4%)
+
+事件家族统计:
+  事件家族数: 20
+  覆盖文章数: 100
+
+事件家族列表:
+  ASMR                             2 篇
+  Composer                         9 篇
+  DeepSeek V4                      4 篇
+  GLM-5-Turbo                      2 篇
+  GPT-5.3 Instant                 11 篇
+  GPT-5.4                         17 篇
+  Gemini 3.1 Flash-Lite            6 篇
+  Gemini Embedding 2               5 篇
+  Grok 4.20                        2 篇
+  LongCat-Flash-Prover             2 篇
+  MAI-Image-2                      1 篇
+  MiMo                             8 篇
+  Midjourney V8                    1 篇
+  MiniMax M2.7                     5 篇
+  Mistral Small 4                  3 篇
+  Nemotron 3                       4 篇
+  Qwen3.5                         11 篇
+  Seedance 2.0                     3 篇
+  SkyReels V4                      3 篇
+  Vidu Q3                          1 篇

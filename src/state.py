@@ -250,6 +250,8 @@ class RAGResearcherState(TypedDict):
     compressed_research: str
     # 原始笔记（与 ResearcherOutputState 的 reducer 一致）
     raw_notes: Annotated[list[str], override_reducer]
+    # 检索详情（用于评测，记录 dense/sparse/merged/reranked 各阶段数据）
+    retrieval_details: Annotated[list[dict], operator.add]
 
 class RAGExecuteState(TypedDict):
     """单个 RAG execute 节点的状态，由 Send 分发。"""
@@ -260,4 +262,6 @@ class RAGExecuteState(TypedDict):
     # execute 输出，通过 reducer 汇入 RAGResearcherState
     raw_results: Annotated[list[str], operator.add]
     raw_notes: Annotated[list[str], override_reducer]
+    # 检索详情（用于评测）
+    retrieval_details: Annotated[list[dict], operator.add]
 

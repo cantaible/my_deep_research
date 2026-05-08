@@ -54,6 +54,7 @@
 - [x] scripts/export_rag_run.py（导出单次运行的 RAG 查询与命中结果）
 - [x] scripts/export_researcher_run.py（导出单次运行的 researcher 子图轨迹）
 - [x] scripts/export_rag_subgraph_analysis.py（导出 RAG 子图 query/反馈/迭代详细报告）
+- [x] scripts/extract_researcher_results.py（抽取 researcher/RAG 输出为 JSON）
 - [x] OpenSearch 词法检索后端（替换手写 BM25）
 - [x] docker-compose.opensearch.yml + build_opensearch_index.py
 - [x] docs/ANTIGRAVITY_PROXY_FIX.md（Clash Verge / Antigravity 代理稳定性排障记录）

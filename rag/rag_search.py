@@ -141,7 +141,8 @@ def _lexical_search(
 
 @tool
 def rag_search(query: str, days: int = 0, category: str = "",
-               top_k: int = 10, start_date: str = "", end_date: str = "") -> str:
+               top_k: int = 10, start_date: str = "", end_date: str = "",
+               return_details: bool = False) -> str | dict:
     """搜索本地新闻数据库，先做混合召回，再用本地 reranker 统一重排。
 
     Args:
@@ -151,6 +152,11 @@ def rag_search(query: str, days: int = 0, category: str = "",
         top_k: 最多返回条数
         start_date: 起始日期 YYYY-MM-DD（含）
         end_date: 结束日期 YYYY-MM-DD（含）
+        return_details: 是否返回检索详情（用于评测）
+
+    Returns:
+        str: 格式化的搜索结果文本（默认）
+        dict: 包含 formatted_output 和 retrieval_details 的字典（当 return_details=True）
     """
     from datetime import datetime
 
@@ -201,8 +207,79 @@ def rag_search(query: str, days: int = 0, category: str = "",
 
     candidates = _collect_candidates(vec, lexical_hits)
     reranked = rerank_candidates(query, candidates)[:top_k]
+
+    # 记录检索详情（用于评测）
+    retrieval_details = None
+    if return_details:
+        # 提取 dense 阶段数据
+        dense_article_ids = [
+            int(meta.get("article_id", 0))
+            for meta in vec["metadatas"][0]
+            if meta.get("article_id")
+        ]
+        dense_scores = vec.get("distances", [[]])[0]  # ChromaDB 返回距离，越小越相似
+
+        # 提取 sparse 阶段数据
+        sparse_article_ids = [
+            int(hit["metadata"].get("article_id", 0))
+            for hit in lexical_hits
+            if hit["metadata"].get("article_id")
+        ]
+        sparse_scores = [hit.get("score", 0.0) for hit in lexical_hits]
+
+        # 提取 merged 阶段数据
+        merged_article_ids = [
+            int(c["metadata"].get("article_id", 0))
+            for c in candidates
+            if c["metadata"].get("article_id")
+        ]
+        merged_sources = {
+            int(c["metadata"]["article_id"]): c.get("sources", [])
+            for c in candidates
+            if c["metadata"].get("article_id")
+        }
+
+        # 提取 reranked 阶段数据
+        reranked_article_ids = [
+            int(item["metadata"].get("article_id", 0))
+            for item in reranked
+            if item["metadata"].get("article_id")
+        ]
+        reranked_scores = [item.get("rerank_score", 0.0) for item in reranked]
+
+        retrieval_details = {
+            "query": query,
+            "dense": {
+                "article_ids": dense_article_ids,
+                "scores": [float(s) for s in dense_scores] if dense_scores else [],
+                "count": len(dense_article_ids),
+            },
+            "sparse": {
+                "article_ids": sparse_article_ids,
+                "scores": [float(s) for s in sparse_scores],
+                "backend": LEXICAL_BACKEND,
+                "count": len(sparse_article_ids),
+            },
+            "merged": {
+                "article_ids": merged_article_ids,
+                "sources": merged_sources,
+                "count": len(merged_article_ids),
+            },
+            "reranked": {
+                "article_ids": reranked_article_ids,
+                "scores": [float(s) for s in reranked_scores],
+                "count": len(reranked_article_ids),
+            },
+        }
+
     if not reranked:
-        return f"查询 '{query}' 没有找到匹配的新闻。"
+        empty_result = f"查询 '{query}' 没有找到匹配的新闻。"
+        if return_details:
+            return {
+                "formatted_output": empty_result,
+                "retrieval_details": retrieval_details,
+            }
+        return empty_result
 
     output = []
     for i, item in enumerate(reranked, start=1):
@@ -216,4 +293,12 @@ def rag_search(query: str, days: int = 0, category: str = "",
         output.append(f"元数据: [{meta.get('category')}] | [{meta.get('source_name')}]")
         output.append(f"Rerank分数: {item.get('rerank_score', 0.0):.4f}")
         output.append(f"预览: {meta.get('preview', '')[:300]}\n")
-    return "\n".join(output)
+
+    formatted_output = "\n".join(output)
+
+    if return_details:
+        return {
+            "formatted_output": formatted_output,
+            "retrieval_details": retrieval_details,
+        }
+    return formatted_output

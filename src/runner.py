@@ -42,6 +42,12 @@ def save_report(run_dir: Path, content: str):
         f.write(content)
 
 
+def save_retrieval_details(run_dir: Path, details: list):
+    """保存检索详情到 retrieval_details.json。"""
+    with open(run_dir / "retrieval_details.json", "w", encoding="utf-8") as f:
+        json.dump(details, f, ensure_ascii=False, indent=2)
+
+
 def normalize_event(raw: dict) -> dict | None:
     """将 astream_events v2 事件标准化为 TUI 可消费的格式。
 
@@ -153,9 +159,12 @@ async def run_research(
             state = await graph.aget_state(config)
             result = state.values
             final_report = result.get("final_report", "")
+            retrieval_details = result.get("retrieval_details", [])
 
             if final_report:
                 save_report(run_dir, final_report)
+                if retrieval_details:
+                    save_retrieval_details(run_dir, retrieval_details)
                 await on_event({"type": "report", "content": final_report,
                                 "ts": datetime.now().isoformat()})
                 break
